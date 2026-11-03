@@ -10,12 +10,12 @@
 #include <string>
 #include <vector>
 
-// Turns off a preprocessing layer by its name; false if there is no such layer.
-bool turn_off(phonemis::processor::Config& config, const std::string& layer) {
-  for (auto [name, enabled] : {std::pair{"normalize", &config.normalize}, std::pair{"trim", &config.trim},
-                               std::pair{"terms", &config.terms}, std::pair{"numbers", &config.numbers},
-                               std::pair{"symbols", &config.symbols}, std::pair{"sanitize", &config.sanitize}}) {
-    if (layer == name) {
+// Turns off a preprocessing step by its name; false if there is no such step.
+bool turn_off(phonemis::processor::Config& config, const std::string& step) {
+  for (auto [name, enabled] :
+       {std::pair{"normalize", &config.normalize}, std::pair{"trim", &config.trim}, std::pair{"terms", &config.terms},
+        std::pair{"numbers", &config.numbers}, std::pair{"symbols", &config.symbols}}) {
+    if (step == name) {
       *enabled = false;
       return true;
     }
@@ -24,15 +24,14 @@ bool turn_off(phonemis::processor::Config& config, const std::string& layer) {
 }
 
 void print_usage(const char* prog_name) {
-  std::cout
-      << "Usage: " << prog_name << " [options] <text>\n"
-      << "Options:\n"
-      << "  --lexicon <path>     Path to lexicon file\n"
-      << "  --model <path>       Path to neural model file\n"
-      << "  --tagger <path>      Path to tagger data file\n"
-      << "  --lang <lang_code>   Language code (e.g., en-us, en-gb)\n"
-      << "  --no <layer>         Turn off a preprocessing layer: normalize, trim, terms, numbers, symbols, sanitize\n"
-      << std::endl;
+  std::cout << "Usage: " << prog_name << " [options] <text>\n"
+            << "Options:\n"
+            << "  --lexicon <path>     Path to lexicon file\n"
+            << "  --model <path>       Path to neural model file\n"
+            << "  --tagger <path>      Path to tagger data file\n"
+            << "  --lang <lang_code>   Language code (e.g., en-us, en-gb)\n"
+            << "  --no <step>          Turn off a preprocessing step: normalize, trim, terms, numbers, symbols\n"
+            << std::endl;
 }
 
 int main(int argc, char* argv[]) {
@@ -59,7 +58,7 @@ int main(int argc, char* argv[]) {
             config.phonemizer.lang = config.lang;
         } else if (arg == "--no" && i + 1 < argc) {
           if (!turn_off(config.preprocessor, argv[++i])) {
-            std::cerr << "Unknown preprocessing layer: " << argv[i] << std::endl;
+            std::cerr << "Unknown preprocessing step: " << argv[i] << std::endl;
             return 1;
           }
         } else if (i == argc - 1) {

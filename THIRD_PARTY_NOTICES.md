@@ -58,17 +58,18 @@ are distributed under their own terms, listed below. The full texts of those lic
   Junyi, exported by [`scripts/tools/create_zh_segmenter.py`](scripts/tools/create_zh_segmenter.py).
 - **License:** MIT, see [`licenses/jieba-MIT.txt`](licenses/jieba-MIT.txt).
 
-## Ported code
-
-`src/phonemis/lang/zh/num2word.cpp` reads numbers as [cn2an](https://github.com/Ailln/cn2an) by Ailln does: a C++ port
-of its Arabic-to-Chinese conversion (`an2cn`). MIT, see [`licenses/cn2an-MIT.txt`](licenses/cn2an-MIT.txt).
-
 ## Bundled libraries
 
 | Library | Location | License |
 |---|---|---|
 | [JSON for Modern C++](https://github.com/nlohmann/json) 3.12.0, by Niels Lohmann | `src/third-party/json.hpp` | MIT, see [`licenses/nlohmann-json-MIT.txt`](licenses/nlohmann-json-MIT.txt) |
 | [xsimd](https://github.com/xtensor-stack/xsimd) 14.2, by Johan Mabille, Sylvain Corlay, Wolf Vollprecht, Martin Renou, QuantStack and Serge Guelton | `src/third-party/xsimd/` | BSD 3-Clause, see [`licenses/xsimd-BSD-3-Clause.txt`](licenses/xsimd-BSD-3-Clause.txt) |
+
+## Dependencies
+
+Preprocessing is [Verbalis](https://github.com/software-mansion-labs/Verbalis) by Software Mansion, a git submodule in
+`third-party/verbalis/`. MIT; its own third-party notices, including cn2an for Chinese numbers, are in its
+`THIRD_PARTY_NOTICES.md`.
 
 ## Unicode data
 

@@ -3,8 +3,9 @@
 ## From Text to Sound
 
 Phonemis is a high-performance C++ library for **Grapheme-to-Phoneme (G2P)** conversion. It
-delivers universal **IPA phonemization** across many platforms with **zero external
-dependencies**, making it an ideal frontend for text-to-speech systems on desktop, mobile, and
+delivers universal **IPA phonemization** across many platforms with **no runtime dependencies**
+(its text preprocessing, [Verbalis](https://github.com/software-mansion-labs/Verbalis), compiles into the library),
+making it an ideal frontend for text-to-speech systems on desktop, mobile, and
 embedded devices.
 
 Currently supported languages:
@@ -32,6 +33,8 @@ phonemis/
 │   │   ├── protophone/            # Pure C++ neural model inference engine
 │   │   └── utils/                 # Conversions, string utilities, Unicode support
 │   └── third-party/               # Bundled header-only dependencies (xsimd)
+├── third-party/
+│   └── verbalis/                  # Verbalis (git submodule): numbers, dates, symbols as words
 └── CMakeLists.txt
 ```
 
@@ -44,10 +47,20 @@ available for English). These are the files you point to in `phonemizer::Config`
 
 ### Requirements
 - **C++20** compiler
-- **CMake** ≥ 3.10
+- **CMake** ≥ 3.21
 - **xsimd** (bundled as a header-only library under `src/third-party/`)
+- **[Verbalis](https://github.com/software-mansion-labs/Verbalis)** (a git submodule in `third-party/verbalis/`)
 
 ### Building the Library
+
+Clone with the submodule:
+
+```bash
+git clone --recursive https://github.com/software-mansion-labs/Phonemis.git
+```
+
+In an existing clone, run `git submodule update --init`. Without the submodule, CMake fetches Verbalis v0.1.0 from
+GitHub, and a parent project can provide its own `verbalis::verbalis` target instead.
 
 The below script builds the package as a static library:
 
@@ -87,6 +100,15 @@ SIMD is configured automatically at build time:
   stages.
 - **ARM** (Android arm64-v8a, iOS arm64): NEON is implicitly available and used by xsimd with
   no extra flags.
+
+### Building Without CMake
+
+A build that compiles the sources directly, like a CocoaPods podspec, compiles Verbalis too:
+
+- sources: `src/phonemis/**/*.cpp` (without `main.cpp`) and `third-party/verbalis/cpp/src/**/*.cpp`;
+- header search paths: `src/`, `src/third-party/`, `third-party/verbalis/cpp/include/` and
+  `third-party/verbalis/cpp/src/`;
+- C++20.
 
 ### Mobile Builds
 
@@ -134,31 +156,30 @@ The `Pipeline::operator()` accepts both `std::string_view` (UTF-8) and `std::u32
 
 ### Customizing preprocessing
 
-Before phonemization, the text goes through layers which read it out loud: character and
-whitespace normalization, abbreviations and web addresses, numbers, symbols, and character fixes. Each can be
-turned off, and a language's own abbreviations and symbols can be extended or overridden:
+Before phonemization, [Verbalis](https://github.com/software-mansion-labs/Verbalis) rewrites the text the way it's
+read aloud: character and whitespace normalization, abbreviations and web addresses, numbers, and symbols. Each step
+can be turned off, and a language's own abbreviations and symbols can be extended or overridden:
 
 ```cpp
 Config config;
 config.lang = "en-us";
 config.phonemizer = phon_config;
 config.preprocessor = {
-    .symbols = false,                                    // Keep "&", "+", ... as written
-    .abbreviations = {{U"approx.", {U"approximately"}}}, // Added to the language's own
+    .symbols = false,                                // Keep "&", "+", ... as written
+    .abbreviations = {{"approx.", "approximately"}}, // Added to the language's own
 };
 ```
 
-| Field | Layer | Example |
+| Field | Step | Example |
 |---|---|---|
 | `normalize` | one form of each character | `’` → `'`, `„a“` → `"a"`, `a – b` → `a - b`, `…` → `...` |
 | `trim` | whitespace normalization | `"  a   b , c"` → `"a b, c"` |
 | `terms` | abbreviations, web addresses | `e.g.` → *for example*, `example.com` → *example dot com* |
 | `numbers` | numbers, dates, money, units, ... | `$5` → *five dollars* |
 | `symbols` | remaining symbols | `&` → *and* |
-| `sanitize` | language's character fixes, if it has any | |
-| `abbreviations`, `symbol_words` | extra table entries | `{U"™", {U"trademark"}}` |
+| `abbreviations`, `symbol_words` | extra readings, as UTF-8 | `{"™", "trademark"}` |
 
-All layers are on by default, and always run in this order: normalize, trim, terms, numbers, symbols, sanitize.
+All steps are on by default, and always run in this order: normalize, trim, terms, numbers, symbols.
 
 ### CLI Runner
 
@@ -177,7 +198,7 @@ accuracy:
 ### Rule-based
 
 A language-aware tokenizer segments text using configurable rules for words, punctuation, and
-special characters. A number-to-word layer verbalizes digits, dates, currencies, fractions, and
+special characters. Before that, Verbalis verbalizes digits, dates, currencies, fractions, and
 ordinals into their textual forms according to language-specific conventions (e.g., German
 "einundzwanzig" unit-before-tens order, comma decimal separator).
 
@@ -200,15 +221,13 @@ configuration.
 
 ### Extending to a New Language
 
-Phonemis is designed to be contribution-friendly. Adding support for a new language requires
-three files under `src/phonemis/lang/XX/`:
+Phonemis is designed to be contribution-friendly. Its preprocessing comes from Verbalis, so a new language needs
+Verbalis to support it first. Then it needs these files under `src/phonemis/lang/XX/`:
 
 | File | Purpose | Requirement |
 |------|---------|-------------|
-| `constants.h` | Language-specific data: number words (cardinals, ordinals), currencies, units, months, symbol words, tokenizer special-character rules. | Mandatory |
-| `num2word.h` / `num2word.cpp` | Number verbalizer extending `processor::num2word::Num2WordLayer<NumberReading>`: the language's number notation, its own patterns (dates, phones, ordinal suffixes), how context decides a reading (`resolve`) and the readings themselves (`read_*`). | Mandatory |
-| `patterns.h` / `patterns.cpp` | Number patterns the generic ones do not cover (Roman ordinals, law numbers). | Optional |
-| `pipeline.h` | Pipeline class extending `IPipeline`. Orchestrates preprocessing layers (trimming, number and symbol verbalization), a tokenizer, and a `HybridPhonemizer<LexiconPhonemizer, NeuralPhonemizer>`. | Mandatory |
+| `constants.h` | Language-specific data: tokenizer special-character rules, and what else its phonemizer needs. | Mandatory |
+| `pipeline.h` | Pipeline class extending `IPipeline`. Orchestrates preprocessing (a Verbalis `Verbalizer` for its language code), a tokenizer, and a `HybridPhonemizer<LexiconPhonemizer, NeuralPhonemizer>`. | Mandatory |
 | Lexicon JSON / Protophone model | Word-to-phoneme mappings **or** trained neural model (`.bin`). | At least one required |
 
 Then register the language in the factory method at `src/phonemis/base/pipeline.cpp`.

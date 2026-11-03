@@ -1,7 +1,6 @@
 #pragma once
 
 #include "lexicon_phonemizer.h"
-#include "num2word.h"
 #include "segmenter.h"
 #include "types.h"
 

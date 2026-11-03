@@ -1,7 +1,7 @@
 # ------------------------
 # --- Project metadata ---
 # ------------------------
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.21)
 project(phonemis VERSION 1.0 LANGUAGES CXX)
 
 # ---------------------
@@ -54,6 +54,22 @@ endif()
 # Threading support (std::thread in the Protophone convolution stage).
 find_package(Threads REQUIRED)
 target_link_libraries(phonemis PUBLIC Threads::Threads)
+
+# Verbalis rewrites text the way it's read aloud, before phonemization. A parent project can provide the
+# verbalis::verbalis target; otherwise the submodule is used, or, in a clone without submodules, the release is fetched.
+if(NOT TARGET verbalis::verbalis)
+  if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/third-party/verbalis/cpp/CMakeLists.txt)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third-party/verbalis/cpp ${CMAKE_CURRENT_BINARY_DIR}/verbalis)
+  else()
+    include(FetchContent)
+    FetchContent_Declare(verbalis
+      GIT_REPOSITORY https://github.com/software-mansion-labs/Verbalis.git
+      GIT_TAG v0.1.0
+      SOURCE_SUBDIR cpp)
+    FetchContent_MakeAvailable(verbalis)
+  endif()
+endif()
+target_link_libraries(phonemis PUBLIC verbalis::verbalis)
 
 # SIMD architecture selection (xsimd)
 # xsimd picks its widest batch type at compile time from the enabled ISA. ARM

@@ -2,14 +2,12 @@
 
 #include "characters.h"
 #include "constants.h"
-#include "num2word.h"
 
 #include <phonemis/base/config.h>
 #include <phonemis/base/ipipeline.h>
 #include <phonemis/base/phonemizer/hybrid_phonemizer.h>
 #include <phonemis/base/phonemizer/lexicon_phonemizer.h>
 #include <phonemis/base/processor/preprocessor.h>
-#include <phonemis/base/processor/processor.h>
 #include <phonemis/base/tokenizer/tokenizer.h>
 
 #include <memory>
@@ -19,20 +17,13 @@ namespace phonemis::hi {
 class Pipeline : public IPipeline {
 public:
   explicit Pipeline(const Config& config)
-      : tokenizer_(&constants::tokenizer::kSpecialCharacters,
-                   &constants::tokenizer::kExceptions),
-        phonemizer_(make_phonemizer_config(config.phonemizer)) {
-
-    // 1. Setup Preprocessing layers
-    preprocessor_ =
-        processor::make_preprocessor<Num2Word>(config.preprocessor, {.characters = &constants::normalize::kCharacters,
-                                                                     .terms = &constants::term2word::kTerms,
-                                                                     .symbols = &constants::sym2word::kSymbols});
-  }
+      : preprocessor_(config.lang, config.preprocessor),
+        tokenizer_(&constants::tokenizer::kSpecialCharacters, &constants::tokenizer::kExceptions),
+        phonemizer_(make_phonemizer_config(config.phonemizer)) {}
 
   // Performs a preprocessing stage of the pipeline.
   std::u32string preprocess(const std::u32string& input) override {
-    return preprocessor_.process(input);
+    return processor::preprocess(preprocessor_, input);
   }
 
   // Performs a middle stage of the pipeline - including phonemization.

@@ -3,13 +3,11 @@
 #include "constants.h"
 #include "hmm_tagger.h"
 #include "lexicon_phonemizer.h"
-#include "num2word.h"
 
 #include <phonemis/base/config.h>
 #include <phonemis/base/ipipeline.h>
 #include <phonemis/base/phonemizer/hybrid_phonemizer.h>
 #include <phonemis/base/processor/preprocessor.h>
-#include <phonemis/base/processor/processor.h>
 #include <phonemis/base/tagger/hmm_tagger.h>
 #include <phonemis/base/tokenizer/tokenizer.h>
 #include <phonemis/utils/conversions.h>
@@ -21,15 +19,10 @@ namespace phonemis::en {
 class Pipeline : public IPipeline {
 public:
   explicit Pipeline(const Config& config)
-      : tokenizer_(&constants::tokenizer::kSpecialCharacters,
-                   &constants::tokenizer::kExceptions),
+      : preprocessor_(config.lang, config.preprocessor),
+        tokenizer_(&constants::tokenizer::kSpecialCharacters, &constants::tokenizer::kExceptions),
         phonemizer_(config.phonemizer) {
-
-    // 1. Setup Preprocessing layers
-    preprocessor_ = processor::make_preprocessor<Num2Word>(
-        config.preprocessor, {.terms = &constants::term2word::kTerms, .symbols = &constants::sym2word::kSymbols});
-
-    // 2. Setup PoS tagger if specified
+    // Setup PoS tagger if specified
     if (config.tagger.has_value()) {
       tagger_ = std::make_unique<en::HMMTagger>(*config.tagger);
     }
@@ -37,7 +30,7 @@ public:
 
   // Performs a preprocessing stage of the pipeline.
   std::u32string preprocess(const std::u32string& input) override {
-    return preprocessor_.process(input);
+    return processor::preprocess(preprocessor_, input);
   }
 
   // Performs a middle stage of the pipeline - including phonemization.

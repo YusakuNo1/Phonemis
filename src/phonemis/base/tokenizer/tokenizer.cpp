@@ -26,7 +26,7 @@ Tokenizer::tokenize(std::u32string_view input) const {
     char32_t c = input[idx];
 
     if (unicode::isspace(c)) {
-      // We assume the input gor preprocessed in a correct way (i.e. with TrimLayer)
+      // We assume the input got preprocessed in a correct way (i.e. with Verbalis's trim step)
       // and there cannot be 2 or more consecutive white characters.
 
       // If we have a pending word, process it

@@ -14,7 +14,7 @@ if [ $# -lt 2 ]; then
     echo "  --lexicon <path>     Path to lexicon file"
     echo "  --model <path>       Path to neural model file"
     echo "  --tagger <path>      Path to tagger data file"
-    echo "  --no <layer>         Turn off a preprocessing layer: normalize, trim, terms, numbers, symbols, sanitize"
+    echo "  --no <step>          Turn off a preprocessing step: normalize, trim, terms, numbers, symbols"
     exit 1
 fi
 

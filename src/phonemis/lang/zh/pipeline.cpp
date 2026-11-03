@@ -1,23 +1,25 @@
 #include "constants.h"
 #include "pipeline.h"
 
+#include <phonemis/utils/conversions.h>
+
 #include <vector>
 
 namespace phonemis::zh {
 
 namespace {
-// The span of the input each character of a processed document came from: copied text maps to itself,
+// The span of the input each character of the preprocessed text came from: copied text maps to itself,
 // and every character of a change to the whole span it replaced
-SourceSpans sources_of(const processor::Document& document, size_t input_size) {
+SourceSpans sources_of(const verbalis::Result& result, size_t input_size) {
   SourceSpans sources;
   size_t original = 0;
-  for (const auto& [span, text] : document.changes()) {
-    for (; original < span.begin; original++) {
+  for (const auto& change : result.changes) {
+    for (; original < change.start; original++) {
       sources.push_back({original, original + 1});
     }
-    SourceSpan source = span.begin < span.end ? SourceSpan{span.begin, span.end} : kNoSource;
-    sources.insert(sources.end(), text.size(), source);
-    original = span.end;
+    SourceSpan source = change.start < change.end ? SourceSpan{change.start, change.end} : kNoSource;
+    sources.insert(sources.end(), utils::conversions::utf8_to_u32(change.replacement).size(), source);
+    original = change.end;
   }
   for (; original < input_size; original++) {
     sources.push_back({original, original + 1});
@@ -26,9 +28,7 @@ SourceSpans sources_of(const processor::Document& document, size_t input_size) {
 }
 } // namespace
 
-Pipeline::Pipeline(const Config& config)
-    : preprocessor_(processor::make_preprocessor<Num2Word>(config.preprocessor,
-                                                           {.characters = &constants::normalize::kCharacters})) {
+Pipeline::Pipeline(const Config& config) : preprocessor_(config.lang, config.preprocessor) {
   if (config.phonemizer.lexicon_filepath.has_value()) {
     phonemizer_ = std::make_unique<zh::LexiconPhonemizer>(config.phonemizer);
   }
@@ -38,7 +38,7 @@ Pipeline::Pipeline(const Config& config)
 }
 
 std::u32string Pipeline::preprocess(const std::u32string& input) {
-  return preprocessor_.process(input);
+  return processor::preprocess(preprocessor_, input);
 }
 
 std::u32string Pipeline::process(const std::u32string& input) {
@@ -103,11 +103,10 @@ std::u32string Pipeline::phonemize(std::u32string_view input, const SourceSpans*
 }
 
 PhonemizedText Pipeline::phonemize_words(std::u32string_view text) {
-  // Preprocessing on a document, which keeps the origin of each character of the result
-  processor::Document document(text);
-  preprocessor_.process(document);
-  std::u32string_view normalized = document.text();
-  SourceSpans sources = sources_of(document, text.size());
+  // Preprocessing with its changes, which keep the origin of each character of the result
+  verbalis::Result preprocessed = preprocessor_.process_with_changes(utils::conversions::u32_to_utf8(text));
+  std::u32string normalized = utils::conversions::utf8_to_u32(preprocessed.text);
+  SourceSpans sources = sources_of(preprocessed, text.size());
 
   SourceSpans phoneme_sources;
   PhonemizedText result{.phonemes = postprocess(phonemize(normalized, &sources, &phoneme_sources))};
