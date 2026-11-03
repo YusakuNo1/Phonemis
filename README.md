@@ -11,12 +11,9 @@ neural model, and returns the phonemes the TTS model speaks.
 
 * **Ten language variants:** English (US and UK), German, French, Spanish, Italian, Polish, Portuguese, Hindi, and
   Mandarin Chinese.
-* **Runs on device:** a C++20 static library with no runtime dependencies, for desktop, Android, and iOS. Its neural
-  phonemizer runs on the CPU, or on [ExecuTorch](https://github.com/pytorch/executorch).
+* **Runs on device:** a C++20 static library with no runtime dependencies, for desktop, Android, and iOS.
 * **Word positions:** `phonemize_words` maps each input word to its phonemes, so you can highlight words as they're
   spoken.
-
-Phonemis powers text-to-speech in [React Native ExecuTorch](https://github.com/software-mansion/react-native-executorch).
 
 ## Quick start
 
@@ -168,7 +165,6 @@ text ─▶ Verbalis ─▶ tokenizer ─▶ tagger ─▶ lexicon ─┬─▶ 
 |---|---|---|
 | `BUILD_TESTS` | `OFF` | Builds the `phonemis_test` test suite. `scripts/run_tests.sh` builds and runs it. |
 | `BUILD_RUNNER` | `OFF` | Builds the `phonemis_runner` command-line tool. |
-| `ET_ON` | `OFF` | Runs the neural model on ExecuTorch instead of the built-in Protophone. |
 
 Phonemis needs a C++20 compiler and CMake 3.21 or later. It bundles its other dependency, xsimd, in `src/third-party/`.
 
@@ -179,11 +175,6 @@ CMake finds Verbalis in this order:
 1. a `verbalis::verbalis` target that the parent project already defines;
 2. the `third-party/verbalis` submodule (in an existing clone, run `git submodule update --init`);
 3. otherwise, the Verbalis `v0.1.1` release, fetched from GitHub.
-
-### ExecuTorch
-
-With `-DET_ON=ON`, Phonemis leaves out the Protophone sources and runs the neural model on ExecuTorch. The parent
-project provides the ExecuTorch headers and runtime, as React Native ExecuTorch does.
 
 ### SIMD
 
@@ -203,9 +194,9 @@ A build that compiles the sources directly, like a CocoaPods podspec, compiles V
 lists the source files and header search paths, so a podspec doesn't hardcode them:
 
 ```ruby
-require_relative "third-party/common/phonemis/phonemis_sources"
+require_relative "third-party/phonemis/phonemis_sources"
 
-phonemis = "third-party/common/phonemis" # The Phonemis checkout, relative to the podspec
+phonemis = "third-party/phonemis" # The Phonemis checkout, relative to the podspec
 s.source_files = PhonemisSources.source_files(phonemis) + [...]
 s.exclude_files = PhonemisSources.exclude_files(phonemis) + [...]
 header_search_paths = PhonemisSources.header_search_paths(phonemis).map { |p| "\"$(PODS_TARGET_SRCROOT)/#{p}\"" }
