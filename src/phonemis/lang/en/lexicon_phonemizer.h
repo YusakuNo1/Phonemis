@@ -49,6 +49,14 @@ public:
                                 std::optional<bool> vowel_next, bool future_to = false) const;
 
 private:
+  /**
+   * Whether the next word starts with a vowel sound, which decides "am", "in", "the" and "to": the FBI -> ði.
+   * @param token the current word; only those four look the next word up in the lexicon.
+   * @param next_token the next word, read by its first letter when it isn't in the lexicon.
+   * @returns true for a vowel, false for a consonant, std::nullopt for neither.
+   */
+  std::optional<bool> is_vowel_next(const Token& token, const Token& next_token) const;
+
   // Configuration fields - set up during initialization.
   bool british_;
 
