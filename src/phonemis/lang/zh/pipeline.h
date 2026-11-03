@@ -2,11 +2,10 @@
 
 #include "lexicon_phonemizer.h"
 #include "segmenter.h"
-#include "types.h"
 
 #include <phonemis/base/config.h>
-#include <phonemis/base/ipipeline.h>
-#include <phonemis/base/processor/preprocessor.h>
+#include <phonemis/base/language_pipeline.h>
+#include <phonemis/base/processor/types.h>
 
 #include <memory>
 
@@ -19,11 +18,11 @@ namespace phonemis::zh {
  * The segmenter's data goes in the tagger configuration; without it, every run of Han
  * characters is read as one word. Without a lexicon, Han characters are dropped.
  */
-class Pipeline : public IPipeline {
+class Pipeline : public LanguagePipeline {
 public:
   explicit Pipeline(const Config& config);
 
-  using IPipeline::phonemize_words;
+  using LanguagePipeline::phonemize_words;
 
   /**
    * Locates the words of the input in its phonemization. Chinese has no spaces between
@@ -31,9 +30,6 @@ public:
    * groups from the same spelled-out number or date make one word.
    */
   PhonemizedText phonemize_words(std::u32string_view text) override;
-
-  // Performs a preprocessing stage of the pipeline.
-  std::u32string preprocess(const std::u32string& input) override;
 
   // Performs a middle stage of the pipeline - including phonemization.
   std::u32string process(const std::u32string& input) override;
@@ -44,11 +40,8 @@ public:
 private:
   // Phonemizes preprocessed text. With `sources` (one per input character), it also
   // records in `phoneme_sources` where each phoneme came from.
-  std::u32string phonemize(std::u32string_view input, const SourceSpans* sources,
-                           SourceSpans* phoneme_sources) const;
-
-  // Required submodules
-  processor::Preprocessor preprocessor_;
+  std::u32string phonemize(std::u32string_view input, const processor::SourceSpans* sources,
+                           processor::SourceSpans* phoneme_sources) const;
 
   // Optional submodules
   std::unique_ptr<zh::LexiconPhonemizer> phonemizer_ = nullptr;

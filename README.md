@@ -59,7 +59,7 @@ Clone with the submodule:
 git clone --recursive https://github.com/software-mansion-labs/Phonemis.git
 ```
 
-In an existing clone, run `git submodule update --init`. Without the submodule, CMake fetches Verbalis v0.1.0 from
+In an existing clone, run `git submodule update --init`. Without the submodule, CMake fetches Verbalis v0.1.1 from
 GitHub, and a parent project can provide its own `verbalis::verbalis` target instead.
 
 The below script builds the package as a static library:
@@ -232,7 +232,7 @@ Verbalis to support it first. Then it needs these files under `src/phonemis/lang
 | File | Purpose | Requirement |
 |------|---------|-------------|
 | `constants.h` | Language-specific data: tokenizer special-character rules, and what else its phonemizer needs. | Mandatory |
-| `pipeline.h` | Pipeline class extending `IPipeline`. Orchestrates preprocessing (a Verbalis `Verbalizer` for its language code), a tokenizer, and a `HybridPhonemizer<LexiconPhonemizer, NeuralPhonemizer>`. | Mandatory |
+| `pipeline.h` | Pipeline class extending `LanguagePipeline`, which preprocesses with a Verbalis `Verbalizer` for its language code. Orchestrates a tokenizer, and a `HybridPhonemizer<LexiconPhonemizer, NeuralPhonemizer>`. | Mandatory |
 | Lexicon JSON / Protophone model | Word-to-phoneme mappings **or** trained neural model (`.bin`). | At least one required |
 
 Then register the language in the factory method at `src/phonemis/base/pipeline.cpp`.

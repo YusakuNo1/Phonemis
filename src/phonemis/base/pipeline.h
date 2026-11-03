@@ -37,8 +37,8 @@ public:
 
   /**
    * Performs a complete G2P processing and locates each word of the input in
-   * the result. Every word maps onto its own space-separated phoneme group,
-   * except for numbers, which take as many groups as they were spelled out into.
+   * the result. A word takes the phoneme groups it was spelled out into, and words
+   * that one change of preprocessing covers (a phone number in two parts) make one.
    * @param text an input text (utf-8) to be processed.
    * @returns phonemization of given input text, with its words located in it.
    * Word offsets count code points of the input converted to u32.
@@ -47,8 +47,8 @@ public:
 
   /**
    * Performs a complete G2P processing and locates each word of the input in
-   * the result. Every word maps onto its own space-separated phoneme group,
-   * except for numbers, which take as many groups as they were spelled out into.
+   * the result. A word takes the phoneme groups it was spelled out into, and words
+   * that one change of preprocessing covers (a phone number in two parts) make one.
    * @param text an input text (u32string_view) to be processed.
    * @returns phonemization of given input text, with its words located in it.
    */

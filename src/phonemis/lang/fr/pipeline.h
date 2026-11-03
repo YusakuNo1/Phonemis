@@ -3,10 +3,9 @@
 #include "constants.h"
 
 #include <phonemis/base/config.h>
-#include <phonemis/base/ipipeline.h>
+#include <phonemis/base/language_pipeline.h>
 #include <phonemis/base/phonemizer/hybrid_phonemizer.h>
 #include <phonemis/base/phonemizer/lexicon_phonemizer.h>
-#include <phonemis/base/processor/preprocessor.h>
 #include <phonemis/base/tokenizer/tokenizer.h>
 #include <phonemis/utils/conversions.h>
 
@@ -14,17 +13,12 @@
 
 namespace phonemis::fr {
 
-class Pipeline : public IPipeline {
+class Pipeline : public LanguagePipeline {
 public:
   explicit Pipeline(const Config& config)
-      : preprocessor_(config.lang, config.preprocessor),
+      : LanguagePipeline(config),
         tokenizer_(&constants::tokenizer::kSpecialCharacters, &constants::tokenizer::kExceptions),
         phonemizer_(config.phonemizer) {}
-
-  // Performs a preprocessing stage of the pipeline.
-  std::u32string preprocess(const std::u32string& input) override {
-    return processor::preprocess(preprocessor_, input);
-  }
 
   // Performs a middle stage of the pipeline - including phonemization.
   std::u32string process(const std::u32string& input) override {
@@ -43,7 +37,6 @@ public:
 
 private:
   // Required submodules
-  processor::Preprocessor preprocessor_;
   tokenizer::Tokenizer tokenizer_;
   phonemizer::HybridPhonemizer<phonemizer::LexiconPhonemizer, phonemizer::nn::NeuralPhonemizer> phonemizer_;
 };

@@ -71,9 +71,10 @@ new code (a language, a component, a fix) that reads like the author wrote it.
 
 ### 1.3 A pipeline is a composition of submodules
 ```cpp
+class Pipeline : public LanguagePipeline { // Owns the preprocessor: Verbalis for the language code
+  …
 private:
   // Required submodules
-  processor::Preprocessor preprocessor_;
   tokenizer::Tokenizer tokenizer_;
   phonemizer::HybridPhonemizer<en::LexiconPhonemizer, phonemizer::nn::NeuralPhonemizer> phonemizer_;
 

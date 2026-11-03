@@ -64,7 +64,7 @@ if(NOT TARGET verbalis::verbalis)
     include(FetchContent)
     FetchContent_Declare(verbalis
       GIT_REPOSITORY https://github.com/software-mansion-labs/Verbalis.git
-      GIT_TAG v0.1.0
+      GIT_TAG v0.1.1
       SOURCE_SUBDIR cpp)
     FetchContent_MakeAvailable(verbalis)
   endif()

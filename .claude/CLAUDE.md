@@ -79,8 +79,8 @@ should understand a class or function at a glance.
   - `Phonemizer::phonemize(std::span<const Token>)` → `phonemize(const Token&) const = 0`
     + `update_context()`
   - `Tagger::tag()` → `tag_sentence()`
-- **Compose submodules.** A language pipeline is a preprocessor (a Verbalis `Verbalizer`), a
-  tokenizer and a phonemizer, plus an optional tagger:
+- **Compose submodules.** A language pipeline is a preprocessor (a Verbalis `Verbalizer`, owned by its
+  base `LanguagePipeline`), a tokenizer and a phonemizer, plus an optional tagger:
   - Required parts are value members.
   - Optional parts are `std::unique_ptr<T> x_ = nullptr`, created only when configured and checked
     with `if (x_)`.
@@ -360,7 +360,7 @@ std::u32string preprocess(const std::u32string& input) override;
    first. Add it in the Verbalis repo, then move the `third-party/verbalis` submodule to that release.
 2. `lang/xx/constants.h`: the language's data (`tokenizer` rules and exceptions, and anything its
    phonemizer needs).
-3. `lang/xx/pipeline.h`: header-only. Copy the shape of `lang/de/pipeline.h`: its preprocessing is
-   `preprocessor_(config.lang, config.preprocessor)`, a Verbalis `Verbalizer` for the language code.
+3. `lang/xx/pipeline.h`: header-only. Copy the shape of `lang/de/pipeline.h`: it derives from
+   `LanguagePipeline`, which preprocesses with Verbalis for the language code, and fills in processing.
 4. Register it in `Pipeline::create_pipeline` (`base/pipeline.cpp`).
 5. Put data in `data/xx/` and add tests in `test/`.
