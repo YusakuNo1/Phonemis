@@ -66,70 +66,123 @@
   <a href="https://discord.swmansion.com"><img src="https://img.shields.io/badge/Discord-join%20us-0a1240?style=for-the-badge&logo=discord&logoColor=white" alt="Join the Software Mansion Discord"></a>
 </p>
 
-Phonemis turns text into IPA phonemes. It's the grapheme-to-phoneme (G2P) front end of a text-to-speech (TTS) model:
-it reads numbers, dates, money, and abbreviations aloud, picks each word's pronunciation from a lexicon or a small
-neural model, and returns the phonemes the TTS model speaks.
+## From Text to Sound
 
-- **Ten language variants:** English (US and UK), German, French, Spanish, Italian, Polish, Portuguese, Hindi, and
-  Mandarin Chinese.
-- **Runs on device:** a C++20 static library with no runtime dependencies, for desktop, Android, and iOS.
-- **Word positions:** `phonemize_words` maps each input word to its phonemes, so you can highlight words as they're
-  spoken.
+Phonemis is a high-performance C++ library for **Grapheme-to-Phoneme (G2P)** conversion. It
+delivers universal **IPA phonemization** across many platforms with **no runtime dependencies**
+(its text preprocessing, [Verbalis](https://github.com/software-mansion-labs/Verbalis), compiles into the library),
+making it an ideal frontend for text-to-speech systems on desktop, mobile, and
+embedded devices.
 
-## Quick start
+Currently supported languages:
 
-Clone with the [Verbalis](https://github.com/software-mansion-labs/Verbalis) submodule, which reads text aloud
-before phonemization, then build and run the tests:
+*  🇺🇸 English (US) — `en-us`
+*  🇬🇧 English (British) — `en-gb`
+*  🇩🇪 German — `de`
+*  🇫🇷 French — `fr`
+*  🇪🇸 Spanish — `es`
+*  🇮🇹 Italian — `it`
+*  🇵🇱 Polish — `pl`
+*  🇵🇹 Portuguese — `pt`
+*  🇮🇳 Hindi — `hi`
+*  🇨🇳 Mandarin Chinese — `zh`
+
+## Repository Structure
+
+```
+phonemis/
+├── data/                          # Bundled resources (one subdirectory per language)
+├── src/
+│   ├── phonemis/
+│   │   ├── base/                  # Core API: Pipeline, IPipeline, Config, phonemizer, tokenizer
+│   │   ├── lang/                  # Language-specific modules (en/, de/, fr/, …)
+│   │   ├── protophone/            # Pure C++ neural model inference engine
+│   │   ├── utils/                 # Conversions, string utilities, Unicode support
+│   │   └── main.cpp               # The phonemis_runner CLI tool
+│   └── third-party/               # Bundled header-only dependencies (xsimd)
+├── scripts/                       # Build, test, and lint scripts; tools/ creates the data files
+├── test/                          # The phonemis_test suite
+├── third-party/
+│   └── verbalis/                  # Verbalis (git submodule): numbers, dates, symbols as words
+├── phonemis_sources.rb            # Source lists for builds without CMake
+└── CMakeLists.txt
+```
+
+Every language folder under `data/` contains the resources needed for phonemization — a lexicon
+JSON file (word-to-phoneme dictionary), a Protophone model weights file (`.bin`) for neural
+inference, and optionally a tagger JSON file for part-of-speech disambiguation (English). Mandarin Chinese
+has a lexicon and a word segmenter (`segmenter.json`) instead, which goes in `Config::tagger`.
+These are the files you point to in `phonemizer::Config`.
+
+## Installation
+
+### Requirements
+- **C++20** compiler
+- **CMake** ≥ 3.21
+- **xsimd** (bundled as a header-only library under `src/third-party/`)
+- **[Verbalis](https://github.com/software-mansion-labs/Verbalis)** (a git submodule in `third-party/verbalis/`)
+
+### Building the Library
+
+Clone with the submodule:
 
 ```bash
 git clone --recursive https://github.com/software-mansion-labs/Phonemis.git
-cd Phonemis
-cmake -S . -B build -DBUILD_TESTS=ON -DBUILD_RUNNER=ON
-cmake --build build -j
-./build/phonemis_test
 ```
 
-To phonemize a sentence from the command line, run `phonemis_runner`:
+In an existing clone, run `git submodule update --init`. Without the submodule, CMake fetches Verbalis v0.1.1 from
+GitHub, and a parent project can provide its own `verbalis::verbalis` target instead.
+
+The following commands build the package as a static library:
 
 ```bash
-./build/phonemis_runner --lang en-us \
-    --lexicon data/en-us/lexicon_full.json \
-    --model data/en-us/phonemizer_en_us.bin \
-    --tagger data/en-us/tagger.json \
-    "I paid \$49 for the FBI tickets."
+mkdir build
+cd build
+cmake ..
+make
 ```
 
-```text
-Preprocessed: I paid forty-nine dollars for the FBI tickets.
-Output: ˌI pˈAd fˈɔɹɾinˈIn dˈɑləɹz fɔɹ ði ˌɛfbˌiˈI tˈɪkəts.
+### Build Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `-DBUILD_RUNNER=ON` | OFF | Builds the `phonemis_runner` CLI tool |
+| `-DBUILD_TESTS=ON` | OFF | Builds the test suite |
+
+### SIMD Acceleration
+
+SIMD is configured automatically at build time:
+- **x86_64 desktop** (non-Emscripten, non-Android, non-iOS): AVX2 + FMA are enabled if the
+  compiler supports them (`-mavx2 -mfma`), accelerating Protophone's convolution and mixing
+  stages.
+- **ARM** (Android arm64-v8a, iOS arm64): NEON is implicitly available and used by xsimd with
+  no extra flags.
+
+### Building Without CMake
+
+A build that compiles the sources directly, like a CocoaPods podspec, compiles Verbalis too. `phonemis_sources.rb`
+lists the files and header search paths, so a podspec doesn't hardcode them:
+
+```ruby
+require_relative "third-party/phonemis/phonemis_sources"
+
+phonemis = "third-party/phonemis" # The Phonemis checkout, relative to the podspec
+s.source_files = PhonemisSources.source_files(phonemis) + [...]
+s.exclude_files = PhonemisSources.exclude_files(phonemis) + [...]
+header_search_paths = PhonemisSources.header_search_paths(phonemis).map { |p| "\"$(PODS_TARGET_SRCROOT)/#{p}\"" }
 ```
 
-`--no <step>` turns off a preprocessing step: `normalize`, `trim`, `terms`, `numbers`, or `symbols`.
+### Mobile Builds
 
-## Languages
+Dedicated scripts are provided for cross-compiling:
+- **Android** (`scripts/build_android.sh`): Produces `.a` libraries for the arm64-v8a and x86_64 ABIs. It reads
+  the NDK path from `ANDROID_NDK_HOME` or `ANDROID_NDK`.
+- **iOS** (`scripts/build_ios.sh`): Produces `.a` libraries for devices (arm64) and simulators (arm64, x86_64).
 
-Each language reads its files from `data/<code>/`. You pass their paths in `Config`:
+## Sample Usage
 
-| Code | Language | Lexicon (`lexicon_filepath`) | Neural model (`nn_model_filepath`) | `tagger` |
-|---|---|---|---|---|
-| `en-us` | English (US) | `lexicon_full.json`, `lexicon_small.json` | `phonemizer_en_us.bin` | `tagger.json` |
-| `en-gb` | English (UK) | `lexicon_full.json`, `lexicon_small.json` | `phonemizer_en_gb.bin` | `tagger.json` |
-| `de` | German | | `phonemizer_de.bin` | |
-| `fr` | French | | `phonemizer_fr.bin` | |
-| `es` | Spanish | | `phonemizer_es.bin` | |
-| `it` | Italian | | `phonemizer_it.bin` | |
-| `pl` | Polish | | `phonemizer_pl.bin` | |
-| `pt` | Portuguese | | `phonemizer_pt.bin` | |
-| `hi` | Hindi | | `phonemizer_hi.bin` | |
-| `zh` | Mandarin Chinese | `lexicon.json` | | `segmenter.json` |
-
-For English, the tagger picks the pronunciation that depends on the part of speech (*read*, *used to*). It's derived
-from a corpus licensed for non-commercial use only, so leave it out in commercial products; see
-[Third-party notices](#license). For Mandarin Chinese, the `tagger` field takes the word segmenter instead.
-
-## Usage
-
-Link the `phonemis` CMake target, then create a `Pipeline` for a language:
+All lexicons and trained neural model weights are bundled in the `./data/` subdirectory, organized
+by language code. The example below uses the English (US) resources:
 
 ```cpp
 #include <phonemis/base/pipeline.h>
@@ -137,49 +190,54 @@ Link the `phonemis` CMake target, then create a `Pipeline` for a language:
 #include <iostream>
 
 int main() {
-  using namespace phonemis;
+    using namespace phonemis;
 
-  Pipeline pipeline(Config{
-      .lang = "en-us",
-      .tagger = tagger::Config{.data_filepath = "data/en-us/tagger.json"},
-      .phonemizer = phonemizer::Config{
-          .lang = "en-us",
-          .lexicon_filepath = "data/en-us/lexicon_full.json",
-          .nn_model_filepath = "data/en-us/phonemizer_en_us.bin",
-      },
-  });
+    phonemizer::Config phon_config;
+    phon_config.lang = "en-us";
+    phon_config.lexicon_filepath = "data/en-us/lexicon_full.json";
+    phon_config.nn_model_filepath = "data/en-us/phonemizer_en_us.bin";
 
-  std::u32string phonemes = pipeline("I read it on 3 May.");
-  std::cout << utils::conversions::u32_to_utf8(phonemes) << "\n";  // ˌI ɹˈid ɪt ˌɔn ðə θˈɜɹd ʌv mˈA.
+    Config config;
+    config.lang = "en-us";
+    config.phonemizer = phon_config;
+
+    Pipeline pipeline(config);
+
+    std::string text = "I love it! This is the best day of my entire life.";
+    auto phonemes = pipeline(text);
+
+    std::cout << "Text: " << text << "\n";
+    std::cout << "Phonemes: " << utils::conversions::u32_to_utf8(phonemes) << "\n";
+
+    return 0;
 }
 ```
 
-A pipeline takes UTF-8 (`std::string_view`) or UTF-32 (`std::u32string_view`) text, and returns phonemes as
-`std::u32string`. Its stages, `preprocess()`, `process()`, and `postprocess()`, are public too.
+The `Pipeline::operator()` accepts both `std::string_view` (UTF-8) and `std::u32string_view`
+(UTF-32), returning phonemes as `std::u32string`. Individual pipeline stages —
+`preprocess()`, `process()`, `postprocess()` — are also exposed.
 
-### Word positions
-
-`phonemize_words` returns the phonemes together with the position of each input word in them. Offsets and lengths
-count UTF-32 code points:
+`Pipeline::phonemize_words()` returns the phonemes together with the position of each input word in them, for
+example to highlight words as they're spoken:
 
 ```cpp
 std::u32string text = U"He's 25 years old.";
 PhonemizedText result = pipeline.phonemize_words(text);
 
 for (const PhonemizedWord& word : result.words) {
-  auto written = text.substr(word.offset, word.length);
-  auto spoken = result.phonemes.substr(word.phoneme_offset, word.phoneme_length);
-  // He's → hˌiz, 25 → twˈɛntifˈIv, years → jˈɪɹz, old. → ˈOld.
+    auto written = text.substr(word.offset, word.length);
+    auto spoken = result.phonemes.substr(word.phoneme_offset, word.phoneme_length);
+    // He's → hˌiz, 25 → twˈɛntifˈIv, years → jˈɪɹz, old. → ˈOld.
 }
 ```
 
-A word keeps all the phonemes it's read as (`25` → *twenty five*), and the words that one reading covers, like
-`40 %` → *forty percent*, come back as one. If the words can't be matched to the phonemes, `words` is empty.
+Offsets and lengths count UTF-32 code points. If the words can't be matched to the phonemes, `words` is empty.
 
-### Preprocessing
+### Customizing preprocessing
 
 Before phonemization, [Verbalis](https://github.com/software-mansion-labs/Verbalis) rewrites the text the way it's
-read aloud. Each step can be turned off, and you can add to a language's abbreviations and symbol readings:
+read aloud: character and whitespace normalization, abbreviations and web addresses, numbers, and symbols. Each step
+can be turned off, and a language's own abbreviations and symbols can be extended or overridden:
 
 ```cpp
 Config config;
@@ -196,110 +254,67 @@ config.preprocessor = {
 | `normalize` | one form of each character | `’` → `'`, `„a“` → `"a"`, `a – b` → `a - b`, `…` → `...` |
 | `trim` | whitespace normalization | `"  a   b , c"` → `"a b, c"` |
 | `terms` | abbreviations, web addresses | `e.g.` → *for example*, `example.com` → *example dot com* |
-| `numbers` | numbers, dates, money, units | `$5` → *five dollars* |
+| `numbers` | numbers, dates, money, units, ... | `$5` → *five dollars* |
 | `symbols` | remaining symbols | `&` → *and* |
 | `abbreviations`, `symbol_words` | extra readings, as UTF-8 | `{"™", "trademark"}` |
 
-All steps are on by default, and run in this order: normalize, trim, terms, numbers, symbols.
+All steps are on by default, and always run in this order: normalize, trim, terms, numbers, symbols.
 
-## How it works
+### CLI Runner
 
-```text
-text ─▶ Verbalis ─▶ tokenizer ─▶ tagger ─▶ lexicon ─┬─▶ postprocessing ─▶ phonemes
-                                (English)           │
-                                             neural ┘ for words the lexicon lacks
+```bash
+./build/phonemis_runner --lang en-us \
+    --lexicon data/en-us/lexicon_full.json \
+    --model data/en-us/phonemizer_en_us.bin \
+    "Hello world"
 ```
 
-1. **Preprocessing:** Verbalis reads numbers, dates, money, units, symbols, and abbreviations aloud, following each
-   language's conventions, like German *einundzwanzig* for 21.
-2. **Tokenization:** a language-aware tokenizer splits the text into words and punctuation.
-3. **Tagging:** for English, an HMM tagger marks each word's part of speech, so *read* in "I read it yesterday" gets
-   its past-tense pronunciation.
-4. **Phonemization:** a hybrid phonemizer looks each word up in the lexicon first, and falls back to the neural model,
-   Protophone, for words it doesn't find. Protophone is a small CTC model with SIMD inference through xsimd. With the
-   tagger, the English lexicon reads *the* as *ði* or *ðə* by the next word's first sound: *ði FBI*, *ðə USA*.
-5. **Postprocessing:** language-specific fixes to the phonemes, like Polish *ʑ* → *ʒ*.
+## The Mechanics of Pronunciation
 
-## Building
+Phonemis combines three complementary phonemization strategies, selected per word to maximize
+accuracy:
 
-| Option | Default | Description |
-|---|---|---|
-| `BUILD_TESTS` | `OFF` | Builds the `phonemis_test` test suite. `scripts/run_tests.sh` builds and runs it. |
-| `BUILD_RUNNER` | `OFF` | Builds the `phonemis_runner` command-line tool. |
+### Rule-based
 
-Phonemis needs a C++20 compiler and CMake 3.21 or later. It bundles its other dependency, xsimd, in `src/third-party/`.
+A language-aware tokenizer segments text using configurable rules for words, punctuation, and
+special characters. Before that, Verbalis verbalizes digits, dates, currencies, fractions, and
+ordinals into their textual forms according to language-specific conventions (for example, German
+"einundzwanzig" unit-before-tens order, comma decimal separator).
 
-### Verbalis
+### Lexicon (lookup-based)
 
-CMake finds Verbalis in this order:
+An O(1) dictionary lookup provides the fastest and most reliable phonemization. It is cheap, can
+be prepared offline, and handles exception words like "read" (present vs. past tense) correctly.
+Other languages can be extended by providing a lexicon JSON file.
 
-1. a `verbalis::verbalis` target that the parent project already defines;
-2. the `third-party/verbalis` submodule (in an existing clone, run `git submodule update --init`);
-3. otherwise, the Verbalis `v0.1.1` release, fetched from GitHub.
+### Neural (Protophone)
 
-### SIMD
+For words not found in the lexicon, a neural phonemizer takes over. **Protophone** is a pure
+C++ CTC-based model with SIMD-accelerated inference via xsimd (AVX2+FMA on x86_64, NEON on ARM).
 
-On x86_64 desktop builds, CMake turns on AVX2 and FMA when the compiler supports them. On ARM (Android arm64-v8a,
-iOS arm64), xsimd uses NEON with no extra flags.
+These strategies are combined through a **hybrid phonemizer**: the lexicon is tried first, and
+the neural model serves as a fallback. Each level can be individually enabled or disabled via
+configuration.
 
-### Android and iOS
+### Extending to a New Language
 
-- `scripts/build_android.sh` builds static libraries for `arm64-v8a` and `x86_64` into `output_android/`. It reads the
-  NDK path from `ANDROID_NDK_HOME` or `ANDROID_NDK`.
-- `scripts/build_ios.sh` builds static libraries for devices (`arm64`) and simulators (`arm64`, `x86_64`) into
-  `output_ios/`. It runs on macOS with Xcode.
+Phonemis is designed to be contribution-friendly. Its preprocessing comes from Verbalis, so a new language needs
+Verbalis to support it first. Then it needs these files under `src/phonemis/lang/XX/`:
 
-### Without CMake
+| File | Purpose | Requirement |
+|------|---------|-------------|
+| `constants.h` | Language-specific data: tokenizer special-character rules, and what else its phonemizer needs. | Mandatory |
+| `pipeline.h` | Pipeline class extending `LanguagePipeline`, which preprocesses with a Verbalis `Verbalizer` for its language code. Orchestrates a tokenizer, and a `HybridPhonemizer<LexiconPhonemizer, NeuralPhonemizer>`. | Mandatory |
+| Lexicon JSON / Protophone model | Word-to-phoneme mappings **or** trained neural model (`.bin`). | At least one required |
 
-A build that compiles the sources directly, like a CocoaPods podspec, compiles Verbalis too. `phonemis_sources.rb`
-lists the source files and header search paths, so a podspec doesn't hardcode them:
-
-```ruby
-require_relative "third-party/phonemis/phonemis_sources"
-
-phonemis = "third-party/phonemis" # The Phonemis checkout, relative to the podspec
-s.source_files = PhonemisSources.source_files(phonemis) + [...]
-s.exclude_files = PhonemisSources.exclude_files(phonemis) + [...]
-header_search_paths = PhonemisSources.header_search_paths(phonemis).map { |p| "\"$(PODS_TARGET_SRCROOT)/#{p}\"" }
-```
-
-## Adding a language
-
-Verbalis must support the language first, since Phonemis preprocesses with it. Then add `src/phonemis/lang/<code>/`:
-
-| File | Contents |
-|---|---|
-| `constants.h` | The tokenizer's special-character rules, and any data the phonemizer needs. |
-| `pipeline.h` | A pipeline class that extends `LanguagePipeline`, which preprocesses with Verbalis. It runs a tokenizer and a `HybridPhonemizer<LexiconPhonemizer, NeuralPhonemizer>`. |
-
-Add a lexicon JSON file, a trained Protophone model, or both to `data/<code>/`, and register the language in
-`Pipeline::create_pipeline` in `src/phonemis/base/pipeline.cpp`.
-
-## Repository structure
-
-```text
-Phonemis/
-├── data/                  # Lexicons, neural models, and taggers, one folder per language
-├── scripts/               # Build, test, and lint scripts; tools/ creates the data files
-├── src/
-│   ├── phonemis/
-│   │   ├── base/          # Pipeline, Config, preprocessing, tokenizer, tagger, phonemizers
-│   │   ├── lang/          # One pipeline per language: en/, de/, zh/, ...
-│   │   ├── protophone/    # Neural model inference in C++
-│   │   ├── utils/         # Unicode and string helpers
-│   │   └── main.cpp       # phonemis_runner
-│   └── third-party/       # xsimd
-├── test/                  # phonemis_test
-├── third-party/verbalis/  # Verbalis (git submodule)
-└── phonemis_sources.rb    # Source lists for podspecs
-```
+Then register the language in the factory method at `src/phonemis/base/pipeline.cpp`.
 
 ## License
 
-Phonemis is licensed under [the MIT License](LICENSE). Some files in `data/` and `src/third-party/` come from other
-projects under their own licenses, listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). In particular, the
-English part-of-speech tagger (`tagger.json`) is derived from a corpus licensed for non-commercial use only, so leave
-out `Config::tagger` in commercial products.
+The source code of Phonemis is released under the [MIT license](LICENSE). Some of the data in `data/` and the bundled
+libraries in `src/third-party/` come from other projects under their own licenses: see
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). In particular, the English part-of-speech tagger (`tagger.json`)
+is derived from a corpus licensed for non-commercial use only, so leave out `Config::tagger` in commercial products.
 
 ## Community Discord
 
