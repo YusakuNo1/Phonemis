@@ -13,8 +13,8 @@
   `}</style>
   <svg width="800" height="416" style={{ position: 'absolute', top: 0, left: 0 }}>
     <defs>
-      <radialGradient id="g0"><stop offset="0%" stopColor="rgba(127,211,255,0.35)" /><stop offset="100%" stopColor="rgba(127,211,255,0)" /></radialGradient>
-      <radialGradient id="g1"><stop offset="0%" stopColor="rgba(255,196,107,0.22)" /><stop offset="100%" stopColor="rgba(255,196,107,0)" /></radialGradient>
+      <radialGradient id="g0"><stop offset="0%" stopColor="rgba(255,196,107,0.35)" /><stop offset="100%" stopColor="rgba(255,196,107,0)" /></radialGradient>
+      <radialGradient id="g1"><stop offset="0%" stopColor="rgba(127,211,255,0.22)" /><stop offset="100%" stopColor="rgba(127,211,255,0)" /></radialGradient>
     </defs>
     <ellipse id="orb0" cx="700" cy="40" rx="260" ry="200" fill="url(#g0)" />
     <ellipse id="orb1" cx="60" cy="416" rx="240" ry="170" fill="url(#g1)" />
@@ -24,7 +24,7 @@
       <span style={{ fontFamily: 'InterBold', fontSize: 56, color: '#ffffff', letterSpacing: -2, lineHeight: 1 }}>Phonemis</span>
       <span style={{ fontSize: 18, color: 'rgba(255,255,255,0.65)', marginTop: 12 }}>Text to phonemes, on device, for text-to-speech.</span>
     </div>
-    <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', letterSpacing: 3, marginBottom: 4 }}>C++20 · IPA · ON DEVICE</span>
+    <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', letterSpacing: 3, marginBottom: 4 }}>C++20</span>
   </div>
   <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 28 }}>
     <div style={{ display: 'flex', alignItems: 'center', height: 64, background: '#111a4d', borderRadius: 12, padding: '0 18px', border: '1px solid rgba(255,255,255,0.08)' }}>
