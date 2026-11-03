@@ -3,6 +3,7 @@
 #include "unicode.h"
 
 #include <algorithm>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <type_traits>
