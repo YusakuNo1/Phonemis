@@ -103,12 +103,17 @@ SIMD is configured automatically at build time:
 
 ### Building Without CMake
 
-A build that compiles the sources directly, like a CocoaPods podspec, compiles Verbalis too:
+A build that compiles the sources directly, like a CocoaPods podspec, compiles Verbalis too. `phonemis_sources.rb`
+lists the files and header search paths, so a podspec doesn't hardcode them:
 
-- sources: `src/phonemis/**/*.cpp` (without `main.cpp`) and `third-party/verbalis/cpp/src/**/*.cpp`;
-- header search paths: `src/`, `src/third-party/`, `third-party/verbalis/cpp/include/` and
-  `third-party/verbalis/cpp/src/`;
-- C++20.
+```ruby
+require_relative "third-party/common/phonemis/phonemis_sources"
+
+phonemis = "third-party/common/phonemis" # The Phonemis checkout, relative to the podspec
+s.source_files = PhonemisSources.source_files(phonemis) + [...]
+s.exclude_files = PhonemisSources.exclude_files(phonemis) + [...]
+header_search_paths = PhonemisSources.header_search_paths(phonemis).map { |p| "\"$(PODS_TARGET_SRCROOT)/#{p}\"" }
+```
 
 ### Mobile Builds
 
