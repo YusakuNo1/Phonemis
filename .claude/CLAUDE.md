@@ -364,3 +364,9 @@ std::u32string preprocess(const std::u32string& input) override;
    `LanguagePipeline`, which preprocesses with Verbalis for the language code, and fills in processing.
 4. Register it in `Pipeline::create_pipeline` (`base/pipeline.cpp`).
 5. Put data in `data/xx/` and add tests in `test/`.
+
+## README
+
+Edit `readme.source.md`, not `README.md`: `npx readme-aura build -a assets -f <fonts>` renders its `aura` block to
+`assets/` and writes `README.md`, where `<fonts>` holds `Inter.ttf` and `InterBold.ttf` (Inter 4 Regular and Bold,
+which have the IPA glyphs).

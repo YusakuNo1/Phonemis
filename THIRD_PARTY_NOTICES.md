@@ -1,8 +1,8 @@
 # Third-party notices
 
 The source code of Phonemis is licensed under the MIT license (see [LICENSE](LICENSE)). Some data files in
-[`data/`](data/) and some bundled libraries in [`src/third-party/`](src/third-party/) come from other projects and
-are distributed under their own terms, listed below. The full texts of those licenses are in
+[`data/`](data/), the bundled libraries in [`src/third-party/`](src/third-party/), Verbalis, and a Unicode table come
+from other projects and are distributed under their own terms, listed below. The full texts of those licenses are in
 [`licenses/`](licenses/).
 
 ## Data
@@ -65,11 +65,16 @@ are distributed under their own terms, listed below. The full texts of those lic
 | [JSON for Modern C++](https://github.com/nlohmann/json) 3.12.0, by Niels Lohmann | `src/third-party/json.hpp` | MIT, see [`licenses/nlohmann-json-MIT.txt`](licenses/nlohmann-json-MIT.txt) |
 | [xsimd](https://github.com/xtensor-stack/xsimd) 14.2, by Johan Mabille, Sylvain Corlay, Wolf Vollprecht, Martin Renou, QuantStack and Serge Guelton | `src/third-party/xsimd/` | BSD 3-Clause, see [`licenses/xsimd-BSD-3-Clause.txt`](licenses/xsimd-BSD-3-Clause.txt) |
 
-## Dependencies
+## Verbalis
 
-Preprocessing is [Verbalis](https://github.com/software-mansion-labs/Verbalis) by Software Mansion, a git submodule in
-`third-party/verbalis/`. MIT; its own third-party notices, including cn2an for Chinese numbers, are in its
-`THIRD_PARTY_NOTICES.md`.
+- **Location:** `third-party/verbalis/` (git submodule), or fetched by CMake when the submodule is missing.
+- **Source:** [Verbalis](https://github.com/software-mansion-labs/Verbalis) v0.1.1 by Software Mansion, which
+  preprocesses text before phonemization. Phonemis compiles its C++ library (`cpp/`) into its own.
+- **License:** MIT, see [`third-party/verbalis/LICENSE`](third-party/verbalis/LICENSE).
+- **Its own third-party code:** the Verbalis C++ library contains a port of [cn2an](https://github.com/Ailln/cn2an)
+  for Chinese numbers (MIT) and a table generated from the Unicode Character Database (Unicode License v3). Its
+  [`THIRD_PARTY_NOTICES.md`](third-party/verbalis/THIRD_PARTY_NOTICES.md) lists them, with the license texts in
+  `third-party/verbalis/licenses/`.
 
 ## Unicode data
 
