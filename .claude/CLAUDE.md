@@ -4,7 +4,9 @@
 
 Phonemis is a C++20 G2P (grapheme-to-phoneme) library for high-performance CPU phonemization on
 mobile and edge devices. It targets many languages, and adding a new language must take minimal
-effort. It has zero runtime dependencies: `json.hpp` and `xsimd` are bundled header-only.
+effort. It has no runtime dependencies: `json.hpp` and `xsimd` are bundled header-only, and its text
+preprocessing, [Verbalis](https://github.com/software-mansion-labs/Verbalis), is a git submodule
+(`third-party/verbalis/`) compiled into the library.
 
 ```bash
 ./scripts/run_tests.sh       # Builds the entire library (including tests) and runs all tests
@@ -17,15 +19,16 @@ effort. It has zero runtime dependencies: `json.hpp` and `xsimd` are bundled hea
 ```
 data/<lang>/              # Lexicon JSON, Protophone model (.bin), optional tagger JSON
 src/phonemis/base/        # Language-agnostic modules: pipeline, tokenizer, tagger, phonemizer, processor
-src/phonemis/lang/<xx>/   # Language-specific modules: constants, num2word, pipeline (+ overrides)
+src/phonemis/lang/<xx>/   # Language-specific modules: constants, pipeline (+ overrides)
 src/phonemis/protophone/  # In-house neural inference (tensors, CTC model)
 src/phonemis/utils/       # strings, unicode, conversions, io
 src/third-party/          # Bundled header-only libraries
+third-party/verbalis/     # Verbalis, the text preprocessing (git submodule)
 test/                     # In-house harness: REGISTER_TEST + ASSERT_EQUALS
 ```
 
-For more detail, see `knowledge/code_style.md`. `lang/*/num2word.cpp` and
-`protophone/protophone.cpp` are mostly AI-generated; do not use them as style references.
+For more detail, see `knowledge/code_style.md`. `protophone/protophone.cpp` is mostly
+AI-generated; do not use it as a style reference.
 
 ## Linting (mandatory)
 
@@ -59,11 +62,11 @@ should understand a class or function at a glance.
 
 - **One class, one responsibility**, describable in one sentence without "and".
 - **Classes are intuitive objects for a human.** A `Tokenizer` tokenizes, a `Tagger` tags, a
-  `Processor` applies `Layer`s, a `Pipeline` runs stages. Name the class after its role and its
+  `Phonemizer` phonemizes, a `Pipeline` runs stages. Name the class after its role and its
   main method after the verb.
-- **Minimal public interface.** Expose only what a caller needs: `Processor` has `add_layer()` and
-  `process()`, `Layer` has `apply()`, `Tokenizer` has `tokenize()`. Helpers are private or
-  file-local, and private helpers are still documented in the header.
+- **Minimal public interface.** Expose only what a caller needs: `Tagger` has `tag()`, `Tokenizer`
+  has `tokenize()`. Helpers are private or file-local, and private helpers are still documented in
+  the header.
 - **Model with types:**
   - Give domain concepts names even when the alias is trivial: `using Lang = std::string;`,
     `using Tag = std::string;`, `split::Rules`, `split::Exceptions`.
@@ -76,22 +79,18 @@ should understand a class or function at a glance.
   - `Phonemizer::phonemize(std::span<const Token>)` → `phonemize(const Token&) const = 0`
     + `update_context()`
   - `Tagger::tag()` → `tag_sentence()`
-  - `Num2WordLayer<Reading>::apply()` → `resolve()`, `read_number()`, `read_date()`, …
-- **Compose submodules.** A language pipeline is a preprocessor, a tokenizer and a phonemizer,
-  plus an optional tagger:
+- **Compose submodules.** A language pipeline is a preprocessor (a Verbalis `Verbalizer`, owned by its
+  base `LanguagePipeline`), a tokenizer and a phonemizer, plus an optional tagger:
   - Required parts are value members.
   - Optional parts are `std::unique_ptr<T> x_ = nullptr`, created only when configured and checked
     with `if (x_)`.
 - **Specialise with data first, subclasses second:**
   - Language behaviour lives in `lang/xx/constants.h` tables, passed to generic components as
     `const T*`.
-  - Generic layers take callables or tables: `SanitizerLayer(Filter, Mapper)`,
-    `Sym2WordLayer(Symbols)`, `Term2WordLayer(Terms)`, `DatePattern(DateFormat)`.
-  - Context-dependent data is still data: a reading with a condition (`{U"+", {{U"plus", after_name}, U"más"}}`).
+  - Generic components take tables: `Tokenizer(&kSpecialCharacters, &kExceptions)`.
   - Subclass only when data is not enough. The subclass reuses the base name inside the language
-    namespace (`en::LexiconPhonemizer : phonemizer::LexiconPhonemizer`, `en::Num2Word :
-    Num2WordLayer`), passes its tables to the base constructor and aliases the base
-    (`using Base = …; using Base::phonemize;`).
+    namespace (`en::LexiconPhonemizer : phonemizer::LexiconPhonemizer`), passes its tables to the
+    base constructor and aliases the base (`using Base = …; using Base::phonemize;`).
 - **Constrain templates with concepts:**
   `template <std::derived_from<LexiconPhonemizer> LXP, std::derived_from<nn::NeuralPhonemizer> NNP>`.
 - **One `struct Config` per module**, and the top-level `Config` aggregates them. Optional
@@ -124,15 +123,11 @@ should understand a class or function at a glance.
   - `types.h`: enums, type aliases, small data structs (`tokenizer/types.h`: `split::Rule`,
     `Rules`, `Exceptions`).
   - `constants.h`: `inline const` tables in `<ns>::constants`, grouped into nested namespaces by
-    the code that uses them (`constants::num2word`, `constants::tokenizer`, `constants::ipa`).
+    the code that uses them (`constants::tokenizer`, `constants::ipa`).
   - `config.h`: the module's `struct Config`.
   - `<interface>.h/.cpp`: an abstract base and its driver (`ipipeline.h/.cpp`,
-    `phonemizer.h/.cpp`, `tagger.h/.cpp`, `layer.h`).
+    `phonemizer.h/.cpp`, `tagger.h/.cpp`).
   - `<impl>_<module>.h/.cpp`: a concrete implementation (`lexicon_phonemizer`, `hmm_tagger`).
-  - Each processor layer has its own subdirectory with a `layer.h/.cpp` and its helpers
-    (`processor/layers/trim/`, `processor/layers/num2word/`), in namespace `processor::<layer>`.
-    Their shared building blocks (Document, Context, conditions, text scanning) live in
-    `processor/common/`, in namespace `processor`.
   - A central data struct can have its own file (`tokenizer/token.h`).
 - Templates and small declarative classes are header-only (`HybridPhonemizer`,
   `lang/*/pipeline.h`, `utils/strings.h`). Everything else is split into `.h` and `.cpp`.
@@ -146,13 +141,13 @@ should understand a class or function at a glance.
   - Leave a blank line after the opening line and before the closing one.
   - Do not indent top-level content.
   - In `constants.h`, sub-namespaces are indented by 2, introduced by `// --- Section Name ---`
-    and closed with `} // namespace num2word`.
+    and closed with `} // namespace tokenizer`.
 - **File-local helpers** go in an anonymous namespace at the top of the `.cpp`, each with a
   one-line comment. Data used by only one function is a `static const` local in that function.
 - Every header uses `#pragma once`.
 - **Include order** (groups in this order, alphabetical inside each group):
   1. Local quoted headers (`"constants.h"`, `"../tokenizer/token.h"`).
-  2. Project headers as `<phonemis/...>` (path from `src/`).
+  2. Project headers as `<phonemis/...>` (path from `src/`), then Verbalis as `<verbalis/...>`.
   3. A blank line, then standard library headers.
   4. Conditional `#ifdef ET_ON` includes last.
 
@@ -167,7 +162,7 @@ The table below is enforced by `.clang-tidy` (through `./scripts/lint.sh`).
 | Entity | Convention | Examples |
 |---|---|---|
 | Classes, structs | PascalCase; acronyms stay upper case | `LexiconPhonemizer`, `TensorView`, `HMMTagger` |
-| Dynamic top-level interface | `I` prefix (other abstract bases have none) | `IPipeline`; `Phonemizer`, `Tagger`, `Layer` |
+| Dynamic top-level interface | `I` prefix (other abstract bases have none) | `IPipeline`; `Phonemizer`, `Tagger` |
 | Functions, variables, params, files | snake_case | `update_context`, `curr_token_id`, `hmm_tagger.cpp` |
 | Private / protected members | snake_case + trailing `_` | `dict_`, `rules_`, `impl_`, `global_context_` |
 | Public struct fields | snake_case, no suffix | `text`, `whitespace`, `lexicon_filepath` |
@@ -279,10 +274,12 @@ std::vector<char32_t> token_to_char_;
 ### Doc comments
 ```cpp
 /**
- * Allows to customize Processor's behavior by expanding it with custom layers.
- * @param layer a new transformation layer to be added.
+ * The text as it's read aloud.
+ * @param preprocessor the language's preprocessor.
+ * @param text the text to preprocess.
+ * @returns the preprocessed text.
  */
-void add_layer(std::unique_ptr<Layer> layer);
+std::u32string preprocess(const Preprocessor& preprocessor, std::u32string_view text);
 
 // Performs a preprocessing stage of the pipeline.
 std::u32string preprocess(const std::u32string& input) override;
@@ -359,15 +356,11 @@ std::u32string preprocess(const std::u32string& input) override;
 
 ## 7. Adding a language `xx`
 
-1. `lang/xx/constants.h`: all the language's data (`num2word`, `sym2word`, `term2word`, `tokenizer`
-   rules and exceptions). In `num2word`, besides the words, how numbers are written: `kNotation`,
-   `kJoiners` and the formats of configurable patterns (`kDateFormat`, `kPhoneFormat`, suffixes).
-2. `lang/xx/num2word.h/.cpp`: a `NumberReading` struct (what context decides) and
-   `class Num2Word : public processor::num2word::Num2WordLayer<NumberReading>`: the list of its
-   patterns, `resolve()` and readings. Patterns beyond the configurable ones go to `lang/xx/patterns.h`.
-3. `lang/xx/pipeline.h`: header-only. Copy the shape of `lang/de/pipeline.h`: its preprocessing is
-   `processor::make_preprocessor<Num2Word>(config.preprocessor, {...its tables...})`, which adds the
-   layers `processor::Config` enables in their fixed order (Normalize, Trim, Term2Word, Num2Word,
-   Sym2Word, Sanitizer).
+1. Preprocessing (numbers, dates, symbols, abbreviations) is Verbalis: the language must exist there
+   first. Add it in the Verbalis repo, then move the `third-party/verbalis` submodule to that release.
+2. `lang/xx/constants.h`: the language's data (`tokenizer` rules and exceptions, and anything its
+   phonemizer needs).
+3. `lang/xx/pipeline.h`: header-only. Copy the shape of `lang/de/pipeline.h`: it derives from
+   `LanguagePipeline`, which preprocesses with Verbalis for the language code, and fills in processing.
 4. Register it in `Pipeline::create_pipeline` (`base/pipeline.cpp`).
 5. Put data in `data/xx/` and add tests in `test/`.

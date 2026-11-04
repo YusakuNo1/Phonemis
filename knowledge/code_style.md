@@ -3,6 +3,11 @@
 These notes describe how the author writes and structures code in `src/phonemis`. Use them to write
 new code (a language, a component, a fix) that reads like the author wrote it.
 
+> **2026-11-03:** preprocessing moved to [Verbalis](https://github.com/software-mansion-labs/Verbalis)
+> (`third-party/verbalis/`). Sections 1.4 and 2.7, the processor layers and `num2word` examples elsewhere, and
+> steps 1 to 3 of "Adding a language `xx`" describe the removed code: for a new language, follow section 7 of
+> `.claude/CLAUDE.md`. The style rules themselves still apply.
+
 ## 0. Sources and weighting
 
 - **Primary evidence** (hand-written by the author, confirmed with `git blame`):
@@ -66,9 +71,10 @@ new code (a language, a component, a fix) that reads like the author wrote it.
 
 ### 1.3 A pipeline is a composition of submodules
 ```cpp
+class Pipeline : public LanguagePipeline { // Owns the preprocessor: Verbalis for the language code
+  …
 private:
   // Required submodules
-  processor::Preprocessor preprocessor_;
   tokenizer::Tokenizer tokenizer_;
   phonemizer::HybridPhonemizer<en::LexiconPhonemizer, phonemizer::nn::NeuralPhonemizer> phonemizer_;
 
@@ -241,7 +247,7 @@ if (!phonemes.empty()) {
 - Scanning avoids copies. The buffer is an `(offset, len)` pair into the input, handed on as
   `std::u32string_view` sub-views. Only the final tokens are copied into `std::u32string`.
 - Assumptions about earlier stages are stated rather than re-checked:
-  `// We assume the input got preprocessed in a correct way (i.e. with TrimLayer)`.
+  `// We assume the input got preprocessed in a correct way (i.e. with Verbalis's trim step)`.
 
 ### 2.7 num2word: scan → classify → verbalize
 - The scanner finds a number at a word boundary and classifies it as a `Mode`. It then builds
@@ -612,7 +618,7 @@ Use the dominant form in new code. Do not "fix" these in unrelated changes.
    ```
 4. Register the language in `base/pipeline.cpp`: add `#include <phonemis/lang/xx/pipeline.h>` and
    `if (config.lang == "xx") {  // Name` returning `std::make_unique<xx::Pipeline>(config)`.
-5. Put data in `data/xx/`, and add tests (`test/num2word_xx_test.cpp`, …).
+5. Put data in `data/xx/`, and add tests (`test/pipeline_xx_test.cpp`, …).
 
 ### Adding a component to `base/`
 - Write an abstract base whose non-virtual driver loops over units and calls a pure virtual,
@@ -635,7 +641,7 @@ Use the dominant form in new code. Do not "fix" these in unrelated changes.
     `false`.
   - A single runner lives in `test/test.cpp`.
 - There is one file per component and variant, named `<component>_<base|lang>_test.cpp`
-  (`tokenizer_base_test.cpp`, `num2word_pl_test.cpp`).
+  (`tokenizer_base_test.cpp`, `pipeline_zh_test.cpp`).
 - Test names follow `<component>_<variant>_<scenario>_test`
   (`tokenizer_base_basic_tokenization_test`).
 - Test code is older and formatted differently: 4-space indent, function braces on a new line, and

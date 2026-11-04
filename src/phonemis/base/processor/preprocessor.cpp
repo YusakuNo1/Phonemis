@@ -1,60 +1,48 @@
-#include "layers/normalize/layer.h"
-#include "layers/term2word/layer.h"
-#include "layers/trim/layer.h"
+#include "constants.h"
 #include "preprocessor.h"
+
+#include <phonemis/utils/conversions.h>
+
+#include <stdexcept>
 
 namespace phonemis::processor {
 
-namespace {
-// A table with extra entries, which replace those with the same key
-Readings merged(Readings table, const Readings& extra) {
-  for (const auto& [key, readings] : extra) {
-    table.insert_or_assign(key, readings);
+std::u32string preprocess(const Preprocessor& preprocessor, std::u32string_view text) {
+  // Verbalis takes and returns UTF-8. It throws only on a bug of its own; the text is then read as written, since
+  // phonemization never throws
+  try {
+    return utils::conversions::utf8_to_u32(preprocessor.process(utils::conversions::u32_to_utf8(text)));
+  } catch (const std::logic_error&) {
+    return std::u32string{text};
   }
-  return table;
 }
-} // namespace
 
-Preprocessor make_preprocessor(const Config& config, const Language& language, std::unique_ptr<Layer> numbers) {
-  Preprocessor preprocessor;
-
-  // Characters normalized first, so that every layer sees one form of each
-  if (config.normalize) {
-    preprocessor.add_layer(std::make_unique<normalize::NormalizeLayer>(
-        language.characters ? *language.characters : normalize::constants::kCharacters));
+Preprocessed preprocess_with_sources(const Preprocessor& preprocessor, std::u32string_view text) {
+  // On a bug of Verbalis, as in preprocess(), the text is read as written: no changes, so each character is its own source
+  verbalis::Result result;
+  try {
+    result = preprocessor.process_with_changes(utils::conversions::u32_to_utf8(text));
+  } catch (const std::logic_error&) {
+    result = {.text = utils::conversions::u32_to_utf8(text)};
   }
+  Preprocessed preprocessed{.text = utils::conversions::utf8_to_u32(result.text)};
+  preprocessed.sources.reserve(preprocessed.text.size());
 
-  if (config.trim) {
-    preprocessor.add_layer(std::make_unique<trim::TrimLayer>());
+  // Changes are in order and count code points of the input, like the indices of a UTF-32 string
+  std::size_t original = 0;
+  for (const auto& change : result.changes) {
+    for (; original < change.start; original++) {
+      preprocessed.sources.push_back({original, original + 1});
+    }
+    SourceSpan source = change.start < change.end ? SourceSpan{change.start, change.end} : kNoSource;
+    preprocessed.sources.insert(preprocessed.sources.end(), utils::conversions::utf8_to_u32(change.replacement).size(),
+                                source);
+    original = change.end;
   }
-
-  // Terms read before numbers, so that "nr 5" still sees its digit
-  if (config.terms && (language.terms || !config.abbreviations.empty())) {
-    term2word::Terms terms = language.terms ? *language.terms : term2word::Terms{};
-    terms.abbreviations = merged(std::move(terms.abbreviations), config.abbreviations);
-    preprocessor.add_layer(std::make_unique<term2word::Term2WordLayer>(std::move(terms)));
+  for (; original < text.size(); original++) {
+    preprocessed.sources.push_back({original, original + 1});
   }
-
-  if (numbers) {
-    preprocessor.add_layer(std::move(numbers));
-  }
-
-  // Symbols read after numbers, which read the ones they own: 20%, $5
-  if (config.symbols && (language.symbols || !config.symbol_words.empty())) {
-    sym2word::Symbols symbols = language.symbols ? *language.symbols : sym2word::Symbols{};
-    preprocessor.add_layer(std::make_unique<sym2word::Sym2WordLayer>(merged(std::move(symbols), config.symbol_words)));
-  }
-
-  if (config.sanitize && language.replacements) {
-    const Replacements& replacements = *language.replacements;
-    auto mapper = [&replacements](char32_t c) {
-      auto it = replacements.find(c);
-      return it != replacements.end() ? it->second : c;
-    };
-    preprocessor.add_layer(std::make_unique<sanitizer::SanitizerLayer>([](char32_t) { return true; }, mapper));
-  }
-
-  return preprocessor;
+  return preprocessed;
 }
 
 } // namespace phonemis::processor

@@ -87,25 +87,19 @@ std::optional<std::u32string> LexiconPhonemizer::phonemize(const Token& token) c
 void LexiconPhonemizer::update_context(size_t curr_token_id, std::span<const Token> tokens) {
   using namespace phonemizer::constants;
 
+  // Clear the context first, so the next word is looked up in a neutral one
+  global_context_ = {};
+
   // Update vowel_next
-  global_context_.vowel_next = std::nullopt;
   if (curr_token_id + 1 < tokens.size()) {
     const auto& next_token = tokens[curr_token_id + 1];
     if (!next_token.text.empty()) {
-      char32_t first_char = unicode::tolower(next_token.text[0]);
-      if (constants::alphabet::kVowels.contains(first_char)) {
-        global_context_.vowel_next = {true};
-      } else if (constants::alphabet::kConsonants.contains(first_char)) {
-        global_context_.vowel_next = {false};
-      } else {
-        global_context_.vowel_next = std::nullopt;
-      }
+      global_context_.vowel_next = is_vowel_next(tokens[curr_token_id], next_token);
     }
   }
 
   // Update future_to
   // Start from the next token and check the 2 nearest, non-punctation words.
-  global_context_.future_to = false;
   for (size_t j = curr_token_id + 1, seen = 0; j < tokens.size() && seen < 2; j++) {
     if (tokens[j].text.size() == 1 && puncts::kPunctuations.contains(tokens[j].text[0]))
       continue;
@@ -115,6 +109,25 @@ void LexiconPhonemizer::update_context(size_t curr_token_id, std::span<const Tok
       break;
     }
   }
+}
+
+std::optional<bool> LexiconPhonemizer::is_vowel_next(const Token& token, const Token& next_token) const {
+  // 1. The next word's first sound, for the words that read differently before a vowel
+  static const std::unordered_set<std::u32string> read_before_vowel = {U"am", U"in", U"the", U"to"};
+  if (read_before_vowel.contains(strings::to_lower(token.text))) {
+    if (auto phonemes = phonemize(next_token)) {
+      for (char32_t c : *phonemes) {
+        if (constants::ipa::kVowels.contains(c)) return true;
+        if (constants::ipa::kConsonants.contains(c)) return false;
+      }
+    }
+  }
+
+  // 2. Its first letter otherwise, or if the lexicon doesn't know it
+  char32_t first_char = unicode::tolower(next_token.text[0]);
+  if (constants::alphabet::kVowels.contains(first_char)) return true;
+  if (constants::alphabet::kConsonants.contains(first_char)) return false;
+  return std::nullopt;
 }
 
 std::u32string LexiconPhonemizer::lookup(const std::u32string& word, const Tag& tag) const {

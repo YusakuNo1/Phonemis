@@ -1,0 +1,3 @@
+[submodule "third-party/verbalis"]
+	path = third-party/verbalis
+	url = https://github.com/software-mansion-labs/Verbalis.git

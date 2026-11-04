@@ -151,4 +151,14 @@ REGISTER_TEST(pipeline_words_en_us_terms_test) {
   return true;
 }
 
+REGISTER_TEST(pipeline_words_en_us_joined_test) {
+  // One change of preprocessing covers two input words, so they're located as one: 40 % -> forty percent
+  std::u32string text = U"Prices rose 40 % today.";
+  auto result = g_en_pipeline.phonemize_words(text);
+
+  ASSERT_EQUALS(g_en_pipeline(text), result.phonemes);
+  ASSERT_EQUALS(U"Prices:pɹˈIsᵻz|rose:ɹˈOz|40 %:fˈɔɹɾi pəɹsˈɛnt|today.:tədˈA.", describe(text, result));
+  return true;
+}
+
 } // namespace phonemis::test
